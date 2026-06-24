@@ -60,32 +60,24 @@ public class ReelController : MonoBehaviour
     [Tooltip("Spin/Bet button reference. Assign this only on one reel to prevent duplicate button handling.")]
     public Button spinButton;
 
-    // Stores all reel instances so they can be started and evaluated together.
     private static readonly List<ReelController> allReels = new List<ReelController>();
 
     private Coroutine spinCoroutine;
     private bool isSpinning = false;
 
-    // Stores the final symbol name that lands in the middle visible slot.
     private string finalMiddleSymbolName;
-
-    // Stores the actual middle symbol GameObject so win highlights can be played.
     private GameObject finalMiddleSymbolObject;
 
     public bool IsSpinning => isSpinning;
-
-    // Returns true if any reel is currently spinning.
     public static bool AnyReelSpinning => allReels.Any(r => r.isSpinning);
 
     private void Start()
     {
-        // Register this reel in the shared reel list.
         if (!allReels.Contains(this))
         {
             allReels.Add(this);
         }
 
-        // Show initial random symbols before the first spin.
         SpawnInitialSymbols();
 
         if (autoSpinOnStart)
@@ -96,29 +88,27 @@ public class ReelController : MonoBehaviour
 
     private void OnDestroy()
     {
-        // Remove destroyed reels from the shared list to avoid null references.
         allReels.Remove(this);
     }
 
     /// <summary>
     /// Starts all reels together.
-    /// This method is usually connected to the Spin/Bet button.
+    /// This method is called from the Spin/Bet button through SlotMachineManager.
     /// </summary>
     public static void StartAllReels()
     {
-        // Prevent button spam while reels are already spinning.
         if (AnyReelSpinning)
             return;
 
-        // Deduct bet before spinning.
-        if (Score.Instance != null)
+        // Prevent spinning when the player does not have enough balance.
+        if (Score.Instance == null || !Score.Instance.ApplyBet())
         {
-            Score.Instance.ApplyBet();
+            PopUp.Instance?.ShowMessage("Not enough balance!");
+            return;
         }
 
         SetSpinButtonInteractable(false);
 
-        // Start each reel independently.
         foreach (var reel in allReels)
         {
             if (reel != null)
@@ -128,10 +118,6 @@ public class ReelController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Enables or disables the assigned spin button.
-    /// Only the first reel with a valid button reference controls the button.
-    /// </summary>
     private static void SetSpinButtonInteractable(bool interactable)
     {
         foreach (var reel in allReels)
@@ -144,9 +130,6 @@ public class ReelController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Spawns the initial static top, middle, and bottom symbols.
-    /// </summary>
     private void SpawnInitialSymbols()
     {
         if (middleSlot == null)
@@ -157,9 +140,6 @@ public class ReelController : MonoBehaviour
         SpawnSymbolAtPosition(Vector3.up * bottomYOffset);
     }
 
-    /// <summary>
-    /// Clears all current symbols from this reel.
-    /// </summary>
     private void DestroyExistingSymbols()
     {
         if (middleSlot == null)
@@ -171,9 +151,6 @@ public class ReelController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Starts the spin coroutine for this reel.
-    /// </summary>
     public void StartSpin()
     {
         if (spinCoroutine != null)
@@ -183,18 +160,12 @@ public class ReelController : MonoBehaviour
 
         isSpinning = true;
 
-        // Random duration makes reel stopping feel less predictable.
         float randomDuration = Random.Range(2f, 4f);
-
-        // Reel index creates sequential stopping between reels.
         float totalStopDelay = stopDelay + reelIndex * stopDelayStep;
 
         spinCoroutine = StartCoroutine(SpinRoutine(randomDuration + totalStopDelay));
     }
 
-    /// <summary>
-    /// Stops this reel immediately.
-    /// </summary>
     public void StopSpin()
     {
         if (spinCoroutine != null)
@@ -206,9 +177,6 @@ public class ReelController : MonoBehaviour
         isSpinning = false;
     }
 
-    /// <summary>
-    /// Handles the reel animation loop until the spin duration is complete.
-    /// </summary>
     private IEnumerator SpinRoutine(float duration)
     {
         if (symbolPrefabs == null || symbolPrefabs.Length == 0)
@@ -229,11 +197,9 @@ public class ReelController : MonoBehaviour
 
         DestroyExistingSymbols();
 
-        // Apply spin speed to movement and spawn timing.
         float adjustedMoveDuration = symbolMoveDuration / spinSpeed;
         float adjustedSpawnInterval = spawnInterval / spinSpeed;
 
-        // Spawn initial moving symbols so the reel immediately appears active.
         GameObject topSymbol = SpawnSymbolAtPosition(Vector3.up * topYOffset);
         GameObject middleSymbol = SpawnSymbolAtPosition(Vector3.zero, true);
         GameObject bottomSymbol = SpawnSymbolAtPosition(Vector3.up * bottomYOffset);
@@ -244,7 +210,6 @@ public class ReelController : MonoBehaviour
 
         float endTime = Time.time + duration;
 
-        // Continuously spawn symbols while the reel is spinning.
         while (Time.time < endTime)
         {
             GameObject newSymbol = SpawnSymbolAtPosition(Vector3.up * topYOffset);
@@ -253,7 +218,6 @@ public class ReelController : MonoBehaviour
             yield return new WaitForSeconds(adjustedSpawnInterval);
         }
 
-        // Final reveal: clear moving symbols and place final static symbols.
         DestroyExistingSymbols();
 
         SpawnSymbolAtPosition(Vector3.up * topYOffset);
@@ -266,10 +230,6 @@ public class ReelController : MonoBehaviour
         TryEvaluateSpinResults();
     }
 
-    /// <summary>
-    /// Spawns a random symbol prefab at the given local position.
-    /// If recordMiddle is true, this symbol is stored as the final result for this reel.
-    /// </summary>
     private GameObject SpawnSymbolAtPosition(Vector3 localPosition, bool recordMiddle = false)
     {
         if (symbolPrefabs == null || symbolPrefabs.Length == 0)
@@ -295,10 +255,6 @@ public class ReelController : MonoBehaviour
         return symbolInstance;
     }
 
-    /// <summary>
-    /// Moves a symbol downward to simulate reel scrolling.
-    /// The symbol is destroyed after it exits the visible reel area.
-    /// </summary>
     private IEnumerator MoveSymbolDown(GameObject symbol, float moveDuration)
     {
         if (symbol == null)
@@ -324,9 +280,6 @@ public class ReelController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Evaluates spin results only after every reel has stopped.
-    /// </summary>
     private void TryEvaluateSpinResults()
     {
         if (allReels.Any(r => r.isSpinning))
@@ -336,11 +289,6 @@ public class ReelController : MonoBehaviour
         EvaluateResults();
     }
 
-    /// <summary>
-    /// Checks final middle symbols and applies rewards based on match type.
-    /// Triple match uses the payout table from Score.
-    /// Pair match gives a fixed reward.
-    /// </summary>
     private void EvaluateResults()
     {
         if (Score.Instance == null)
@@ -355,7 +303,6 @@ public class ReelController : MonoBehaviour
 
         bool allSame = middleSymbols.All(s => s == middleSymbols[0]);
 
-        // Triple match condition.
         if (allSame)
         {
             int payout = Score.Instance.GetTriplePayout(middleSymbols[0]);
@@ -379,7 +326,6 @@ public class ReelController : MonoBehaviour
             return;
         }
 
-        // Pair match condition.
         var pairGroup = middleSymbols
             .GroupBy(s => s)
             .FirstOrDefault(g => g.Count() >= 2);
@@ -399,9 +345,6 @@ public class ReelController : MonoBehaviour
         PopUp.Instance?.ShowMessage("No win. Try again.");
     }
 
-    /// <summary>
-    /// Plays highlight animation on all symbols involved in a winning result.
-    /// </summary>
     private void HighlightWinningSymbols(string winningSymbol)
     {
         foreach (var reel in allReels)
@@ -419,10 +362,6 @@ public class ReelController : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Converts prefab names into clean symbol IDs used by the payout system.
-    /// Example: SlotSymbol_Cherry becomes cherry.
-    /// </summary>
     private string GetSymbolName(GameObject prefab)
     {
         if (prefab == null)
