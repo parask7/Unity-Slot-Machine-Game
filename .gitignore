@@ -1,0 +1,66 @@
+# Unity Generated Folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+
+# Asset meta data should only be ignored when the asset is ignored
+!/[Aa]ssets/**/*.meta
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# Visual Studio Code
+.vscode/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Crash Reports
+sysinfo.txt
+
+# Build Output (keep WebGL build if assignment requires it)
+Build/*
+!Build/WebGL/
+!Build/WebGL/**
+
+# Addressables
+ServerData/
+
+# Generated files
+*.apk
+*.aab
+*.unitypackage
+
+# JetBrains Rider
+*.DotSettings.user
+
+# Auto-generated metadata
+*.pidb.meta
+*.pdb.meta
+
+# Unity Cache
+/[Cc]ache/
+
+# Recording
+Recordings/
+
+# Android
+.gradle/
+
+# Ignore large generated files
+*.stacktrace
